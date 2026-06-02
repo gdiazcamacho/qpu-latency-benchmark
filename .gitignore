@@ -10,3 +10,76 @@ output/reports/*
 *.out
 *.err
 .DS_Store
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Conda
+.conda/
+conda-meta/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.out
+*.err
+
+# Coverage / testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated outputs
+output/raw/*
+output/figures/*
+output/reports/*
+
+# Keep directory structure
+!output/raw/.gitkeep
+!output/figures/.gitkeep
+!output/reports/.gitkeep
+
+# Generated notebooks
+notebooks/*.ipynb
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# MQSS / HPC leftovers
+slurm-*.out
+slurm-*.err
+
+# Secrets and credentials
+.env
+.env.*
+token.txt
+credentials.json
