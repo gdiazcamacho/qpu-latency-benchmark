@@ -1,0 +1,19 @@
+experiment_name: timing_matrix_iqm
+backend: iqm
+
+output_db: output/db/timing_results.sqlite
+
+matrix:
+  n_circuits: [1, 2, 4, 8, 16, 32]
+  depths: [0, 1, 2, 4, 8, 16]
+  shots: [1000]
+  n_qubits: [2]
+  repetitions: 1
+  circuit_family: single_qubit_layers
+  randomize_order: true
+
+backend_options:
+  # Fill this with your IQM backend construction options.
+  # The initial scaffold leaves IQMBackend as a placeholder.
+  url: null
+  token: null

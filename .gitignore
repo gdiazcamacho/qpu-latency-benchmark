@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+output/db/*.sqlite
+output/raw/*
+output/figures/*
+output/reports/*
+
+*.out
+*.err
+.DS_Store
