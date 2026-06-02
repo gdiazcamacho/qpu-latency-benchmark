@@ -1,0 +1,21 @@
+experiment_name: depth_scaling_qmio
+experiment_type: depth_scaling
+backend: qmio
+output_db: output/db/timing_results.sqlite
+
+sweep:
+  depths: [0, 1, 2, 4, 8, 16, 32, 64]
+
+controls:
+  n_circuits: 1
+  shots: 1000
+  n_qubits: 2
+  circuit_family: single_qubit_layers
+
+repetitions: 3
+randomize_order: true
+
+backend_options:
+  calibration_file: null
+  logging_level: 20
+  qmio_partition: full

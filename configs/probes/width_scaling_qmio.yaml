@@ -1,0 +1,21 @@
+experiment_name: width_scaling_qmio
+experiment_type: width_scaling
+backend: qmio
+output_db: output/db/timing_results.sqlite
+
+sweep:
+  n_qubits: [1, 2, 4, 8, 16]
+
+controls:
+  n_circuits: 1
+  depth: 4
+  shots: 1000
+  circuit_family: single_qubit_layers
+
+repetitions: 3
+randomize_order: true
+
+backend_options:
+  calibration_file: null
+  logging_level: 20
+  qmio_partition: full

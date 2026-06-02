@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from .models import TimingJobRecord
 
 
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS timing_jobs (
 
 CREATE TABLE IF NOT EXISTS timing_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timing_job_id INTEGER,
+    timing_job_id INTEGER REFERENCES timing_jobs(id),
     circuit_index INTEGER,
     event_name TEXT,
     timestamp TEXT,
@@ -62,7 +62,17 @@ class TimingDatabase:
         columns = list(data.keys())
         placeholders = ", ".join(["?"] * len(columns))
         sql = f"INSERT INTO timing_jobs ({', '.join(columns)}) VALUES ({placeholders})"
-
         with self._connect() as con:
             cur = con.execute(sql, [data[c] for c in columns])
             return int(cur.lastrowid)
+
+    def save_timing_events(self, events: List[dict]):
+        """Insert a batch of timing event dicts into timing_events."""
+        if not events:
+            return
+        keys = ["timing_job_id", "circuit_index", "event_name", "timestamp", "duration"]
+        placeholders = ", ".join(["?"] * len(keys))
+        sql = f"INSERT INTO timing_events ({', '.join(keys)}) VALUES ({placeholders})"
+        rows = [[e.get(k) for k in keys] for e in events]
+        with self._connect() as con:
+            con.executemany(sql, rows)

@@ -1,3 +1,10 @@
+"""
+Timing benchmark orchestrator.
+
+Runs the full experiment matrix, times each job, and stores results in SQLite.
+IQM backends additionally extract per-circuit timing events if available.
+"""
+
 import json
 import os
 import time
@@ -10,7 +17,7 @@ from qiskit import transpile
 from .database import TimingDatabase
 from .models import TimingJobRecord
 from timing_benchmark.experiments.builders.synthetic_circuits import build_circuit_batch
-from timing_benchmark.experiments.strategies.matrix import expand_matrix
+from timing_benchmark.experiments.strategies.matrix import expand_experiment
 from timing_benchmark.backends.factory import make_backend_adapter
 
 
@@ -26,8 +33,9 @@ class TimingOrchestrator:
         self.backend = self.backend_adapter.get_backend()
 
     def run(self):
-        points = expand_matrix(self.config["matrix"])
-        print(f"Running {len(points)} timing matrix points on backend={self.backend_name}")
+        points = expand_experiment(self.config)
+        experiment_type = self.config.get("experiment_type", self.config.get("matrix", {}).get("experiment_type", "full_matrix"))
+        print(f"Running {len(points)} {experiment_type} points on backend={self.backend_name}")
 
         for idx, point in enumerate(points, start=1):
             print(f"[{idx}/{len(points)}] {point}", flush=True)
@@ -47,8 +55,6 @@ class TimingOrchestrator:
             transpiled_depths = [c.depth() for c in tcirc]
             circuits_to_run = tcirc
         except Exception as exc:
-            # Some custom backends may not support qiskit transpile cleanly.
-            # Fall back to raw circuits, but record the issue.
             circuits_to_run = circuits
             transpiled_depths = [c.depth() for c in circuits]
             print(f"Transpile warning: {exc}", flush=True)
@@ -58,6 +64,8 @@ class TimingOrchestrator:
         walltime_total = None
         success = 0
         error_message = None
+        result = None
+        job = None
         metadata = {
             "point": point,
             "backend_metadata": self.backend_adapter.metadata(),
@@ -75,7 +83,12 @@ class TimingOrchestrator:
             walltime_total = t2 - t0
             success = 1
 
-            metadata["job_id"] = getattr(job, "job_id", lambda: None)()
+            job_id = None
+            try:
+                job_id = job.job_id() if callable(job.job_id) else job.job_id
+            except Exception:
+                pass
+            metadata["job_id"] = job_id
             metadata["result_type"] = type(result).__name__
 
         except Exception as exc:
@@ -108,4 +121,11 @@ class TimingOrchestrator:
             error_message=error_message,
             metadata_json=json.dumps(metadata, default=str),
         )
-        self.db.save_job(record)
+        job_db_id = self.db.save_job(record)
+
+        # IQM: extract per-circuit timing events if the adapter supports it
+        if success and result is not None and hasattr(self.backend_adapter, "extract_timing_events"):
+            events = self.backend_adapter.extract_timing_events(result, job_db_id)
+            if events:
+                self.db.save_timing_events(events)
+                print(f"  Stored {len(events)} timing events for job db_id={job_db_id}", flush=True)

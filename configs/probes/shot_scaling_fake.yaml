@@ -1,0 +1,18 @@
+experiment_name: shot_scaling_fake
+experiment_type: shot_scaling
+backend: fake
+output_db: output/db/timing_results.sqlite
+
+sweep:
+  shots: [10, 100, 1000, 10000, 100000]
+
+controls:
+  n_circuits: 1
+  depth: 4
+  n_qubits: 2
+  circuit_family: single_qubit_layers
+
+repetitions: 3
+randomize_order: true
+
+backend_options: {}

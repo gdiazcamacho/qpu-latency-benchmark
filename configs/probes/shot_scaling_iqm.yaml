@@ -1,0 +1,21 @@
+experiment_name: shot_scaling_iqm
+experiment_type: shot_scaling
+backend: iqm
+output_db: output/db/timing_results.sqlite
+
+sweep:
+  shots: [10, 100, 1000, 10000, 100000]
+
+controls:
+  n_circuits: 1
+  depth: 4
+  n_qubits: 2
+  circuit_family: single_qubit_layers
+
+repetitions: 3
+randomize_order: true
+
+backend_options:
+  # Fill with your IQM Resonance setup if needed.
+  url: null
+  token: null
