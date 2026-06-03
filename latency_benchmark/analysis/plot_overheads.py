@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 
-from timing_benchmark.analysis.load_results import load_timing_jobs
-from timing_benchmark.analysis.fit_models import fit_linear_N, fit_linear_N_depth, auto_fit
+from latency_benchmark.analysis.load_results import load_timing_jobs
+from latency_benchmark.analysis.fit_models import fit_linear_N, fit_linear_N_depth, auto_fit
 
 
 # ---------------------------------------------------------------------------

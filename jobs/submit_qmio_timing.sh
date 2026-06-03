@@ -16,6 +16,6 @@ echo "START_EPOCH=$(date +%s.%N)"
 module purge || true
 module load qmio/hpc gcc/12.3.0 qmio-tools/0.2.1-python-3.11.9 qiskit/1.2.4-python-3.11.9 || true
 
-python -m timing_benchmark.run_experiment --config configs/qmio_timing.yaml
+python -m latency_benchmark.run_experiment --config configs/qmio_timing.yaml
 
 echo "END_EPOCH=$(date +%s.%N)"

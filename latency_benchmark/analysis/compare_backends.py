@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from timing_benchmark.analysis.load_results import load_timing_jobs
-from timing_benchmark.analysis.fit_models import auto_fit, fit_linear_N
+from latency_benchmark.analysis.load_results import load_timing_jobs
+from latency_benchmark.analysis.fit_models import auto_fit, fit_linear_N
 
 
 BACKEND_COLORS = {

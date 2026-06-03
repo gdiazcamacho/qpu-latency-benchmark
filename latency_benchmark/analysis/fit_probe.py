@@ -3,7 +3,7 @@
 import argparse
 import numpy as np
 
-from timing_benchmark.analysis.load_results import load_timing_jobs
+from latency_benchmark.analysis.load_results import load_timing_jobs
 
 SWEEP_TO_COLUMN = {
     "n_circuits": "n_circuits",

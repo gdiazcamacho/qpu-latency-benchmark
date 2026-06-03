@@ -16,9 +16,9 @@ from qiskit import transpile
 
 from .database import TimingDatabase
 from .models import TimingJobRecord
-from timing_benchmark.experiments.builders.synthetic_circuits import build_circuit_batch
-from timing_benchmark.experiments.strategies.matrix import expand_experiment
-from timing_benchmark.backends.factory import make_backend_adapter
+from latency_benchmark.experiments.builders.synthetic_circuits import build_circuit_batch
+from latency_benchmark.experiments.strategies.matrix import expand_experiment
+from latency_benchmark.backends.factory import make_backend_adapter
 
 
 class TimingOrchestrator:

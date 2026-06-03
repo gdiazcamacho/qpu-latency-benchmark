@@ -18,7 +18,7 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from timing_benchmark.analysis.load_results import load_timing_jobs
+from latency_benchmark.analysis.load_results import load_timing_jobs
 
 # ---------------------------------------------------------------------------
 # Core fitting helpers

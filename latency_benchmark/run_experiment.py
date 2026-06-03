@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 import yaml
 
-from timing_benchmark.core.orchestrator import TimingOrchestrator
+from latency_benchmark.core.orchestrator import TimingOrchestrator
 
 
 def main():

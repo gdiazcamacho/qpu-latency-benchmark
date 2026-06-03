@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from timing_benchmark.analysis.load_results import load_timing_jobs
+from latency_benchmark.analysis.load_results import load_timing_jobs
 
 
 SWEEP_TO_COLUMN = {

@@ -17,5 +17,3 @@ randomize_order: true
 
 backend_options:
   calibration_file: null
-  logging_level: 20
-  qmio_partition: full
