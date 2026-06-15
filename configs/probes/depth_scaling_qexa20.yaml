@@ -1,21 +1,23 @@
-experiment_name: width_scaling_iqm
-experiment_type: width_scaling
-backend: iqm
+experiment_name: depth_scaling_qexa20
+experiment_type: depth_scaling
+backend: qexa20
 output_db: output/db/timing_results.sqlite
 
 sweep:
-  n_qubits: [1, 2, 4, 8, 16]
+  depths: [0, 1, 2, 4, 8, 16, 32, 64]
 
 controls:
   n_circuits: 1
-  depth: 4
   shots: 1000
+  n_qubits: 2
   circuit_family: single_qubit_layers
 
 repetitions: 3
 randomize_order: true
 
 backend_options:
-  # Fill with your IQM Resonance setup if needed.
-  url: null
+  backend_name: QExa20
+  hpcqc: true
   token: null
+  url: null
+  port: null

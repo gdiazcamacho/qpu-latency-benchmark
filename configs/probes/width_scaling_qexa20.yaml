@@ -1,21 +1,21 @@
-experiment_name: shot_scaling_iqm
-experiment_type: shot_scaling
-backend: iqm
+experiment_name: width_scaling_qexa20
+experiment_type: width_scaling
+backend: qexa20
 output_db: output/db/timing_results.sqlite
 
 sweep:
-  shots: [10, 100, 1000, 10000, 100000]
+  n_qubits: [1, 2, 4, 8, 16]
 
 controls:
   n_circuits: 1
   depth: 4
-  n_qubits: 2
+  shots: 1000
   circuit_family: single_qubit_layers
 
 repetitions: 3
 randomize_order: true
 
 backend_options:
-  # Fill with your IQM Resonance setup if needed.
+  # Fill with your qexa20 setup if needed.
   url: null
   token: null
