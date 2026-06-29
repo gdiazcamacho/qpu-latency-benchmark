@@ -1,19 +1,19 @@
-experiment_name: batch_scaling_qexa20
+experiment_name: smoke_qexa20
 experiment_type: batch_scaling
 backend: qexa20
 output_db: output/db/timing_results.sqlite
 
 sweep:
-  n_circuits: [1, 2, 4, 8, 16, 32]
+  n_circuits: [1]
 
 controls:
-  depth: 4
-  shots: 1000
+  depth: 1
+  shots: 100
   n_qubits: 2
   circuit_family: single_qubit_layers
 
-repetitions: 3
-randomize_order: true
+repetitions: 1
+randomize_order: false
 
 backend_options:
   backend_name: QExa20

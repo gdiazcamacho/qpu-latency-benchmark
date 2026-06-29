@@ -2,7 +2,7 @@
 Timing benchmark orchestrator.
 
 Runs the full experiment matrix, times each job, and stores results in SQLite.
-IQM backends additionally extract per-circuit timing events if available.
+QExa20 backends additionally extract per-circuit timing events if available.
 """
 
 import json
@@ -49,6 +49,12 @@ class TimingOrchestrator:
             circuit_family=point["circuit_family"],
         )
 
+        if getattr(self.backend_adapter, "supports_batch_submission", lambda: True)():
+            self._run_point_batched(point, circuits)
+        else:
+            self._run_point_per_circuit(point, circuits)
+
+    def _run_point_batched(self, point: Dict, circuits):
         transpiled_depths = None
         try:
             tcirc = transpile(circuits, backend=self.backend)
@@ -69,6 +75,7 @@ class TimingOrchestrator:
         metadata = {
             "point": point,
             "backend_metadata": self.backend_adapter.metadata(),
+            "submission_mode": "batched",
         }
 
         t0 = time.perf_counter()
@@ -97,6 +104,101 @@ class TimingOrchestrator:
             error_message = repr(exc)
             print(f"ERROR: {error_message}", flush=True)
 
+        self._save_record(point, transpiled_depths, walltime_total,
+                          walltime_backend_run, walltime_result_wait,
+                          success, error_message, metadata, result)
+
+    def _run_point_per_circuit(self, point: Dict, circuits):
+        """Submit and time circuits one at a time.
+
+        Used for backends (e.g. QExa20 via MQSS) that do not support batched
+        circuit submission. walltime_backend_run / walltime_result_wait /
+        walltime_total are accumulated as the sum across all circuits in the
+        point, so that T = T0 + alpha*N remains comparable to batched
+        backends: the total cost still scales with N, even though it is
+        measured as N sequential calls instead of one batched call.
+        """
+        optimization_level = self.config.get("backend_options", {}).get("optimization_level", 0)
+        initial_layout = self.config.get("backend_options", {}).get("initial_layout")
+        decompose_to_basis = self.config.get("backend_options", {}).get("decompose_to_basis", False)
+
+        transpiled_depths = []
+        transpiled_circuits = []
+        try:
+            for circ in circuits:
+                if hasattr(self.backend_adapter, "transpile_circuit"):
+                    tqc = self.backend_adapter.transpile_circuit(
+                        circ, self.backend,
+                        optimization_level=optimization_level,
+                        initial_layout=initial_layout,
+                        decompose_to_basis=decompose_to_basis,
+                    )
+                else:
+                    tqc = transpile(circ, backend=self.backend,
+                                     optimization_level=optimization_level,
+                                     initial_layout=initial_layout)
+                transpiled_circuits.append(tqc)
+                transpiled_depths.append(tqc.depth())
+        except Exception as exc:
+            transpiled_circuits = list(circuits)
+            transpiled_depths = [c.depth() for c in circuits]
+            print(f"Transpile warning: {exc}", flush=True)
+
+        walltime_backend_run = 0.0
+        walltime_result_wait = 0.0
+        success = 0
+        error_message = None
+        last_result = None
+        job_ids = []
+        metadata = {
+            "point": point,
+            "backend_metadata": self.backend_adapter.metadata(),
+            "submission_mode": "per_circuit",
+        }
+
+        t_point_start = time.perf_counter()
+        try:
+            for tqc in transpiled_circuits:
+                t0 = time.perf_counter()
+                job = self.backend.run(tqc, shots=point["shots"])
+                t1 = time.perf_counter()
+                result = job.result()
+                t2 = time.perf_counter()
+
+                walltime_backend_run += (t1 - t0)
+                walltime_result_wait += (t2 - t1)
+                last_result = result
+
+                try:
+                    job_id = job.job_id() if callable(job.job_id) else job.job_id
+                except Exception:
+                    job_id = None
+                job_ids.append(job_id)
+
+            success = 1
+            metadata["job_ids"] = job_ids
+            metadata["result_type"] = type(last_result).__name__ if last_result is not None else None
+
+        except Exception as exc:
+            error_message = repr(exc)
+            print(f"ERROR: {error_message}", flush=True)
+
+        t_point_end = time.perf_counter()
+        walltime_total = (
+            (walltime_backend_run + walltime_result_wait)
+            if success
+            else (t_point_end - t_point_start)
+        )
+
+        self._save_record(point, transpiled_depths, walltime_total,
+                          walltime_backend_run if success else None,
+                          walltime_result_wait if success else None,
+                          success, error_message, metadata, last_result)
+
+    def _save_record(self, point: Dict, transpiled_depths, walltime_total,
+                      walltime_backend_run, walltime_result_wait,
+                      success, error_message, metadata, result):
+
         record = TimingJobRecord(
             backend=self.backend_name,
             experiment_name=self.config["experiment_name"],
@@ -123,7 +225,7 @@ class TimingOrchestrator:
         )
         job_db_id = self.db.save_job(record)
 
-        # IQM: extract per-circuit timing events if the adapter supports it
+        # QExa20: extract per-circuit timing events if the adapter supports it
         if success and result is not None and hasattr(self.backend_adapter, "extract_timing_events"):
             events = self.backend_adapter.extract_timing_events(result, job_db_id)
             if events:

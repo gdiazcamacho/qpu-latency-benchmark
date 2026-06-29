@@ -4,7 +4,7 @@ backend: qexa20
 output_db: output/db/timing_results.sqlite
 
 sweep:
-  shots: [10, 100, 1000, 10000]
+  shots: [10, 100, 1000, 10000, 100000]
 
 controls:
   n_circuits: 1
@@ -17,7 +17,7 @@ randomize_order: true
 
 backend_options:
   backend_name: QExa20
-  hpcqc: true
   token: null
   url: null
   port: null
+  decompose_to_basis: true

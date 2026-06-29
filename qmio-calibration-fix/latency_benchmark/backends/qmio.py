@@ -1,5 +1,5 @@
+import glob
 import os
-import re
 
 from .base import BackendAdapter
 
@@ -7,34 +7,22 @@ from .base import BackendAdapter
 # Default location for CESGA QMIO calibration files, named like
 # 2026_03_13__12_00_01.json, sorted lexicographically == chronologically.
 DEFAULT_CALIBRATION_DIR = "/opt/cesga/qmio/hpc/calibrations"
-
-# Only match timestamped calibration snapshots (YYYY_MM_DD__HH_MM_SS.json).
-# The calibrations directory also contains other files such as
-# calib_exceptions.json, which are not full calibration snapshots and must
-# not be picked up by "latest file" discovery.
-CALIBRATION_FILENAME_RE = re.compile(r"^\d{4}_\d{2}_\d{2}__\d{2}_\d{2}_\d{2}\.json$")
+CALIBRATION_GLOB = "*.json"
 
 
 def find_latest_calibration_file(directory: str = DEFAULT_CALIBRATION_DIR) -> str:
     """Return the path to the most recent calibration JSON in `directory`.
 
-    Calibration snapshots are named like `YYYY_MM_DD__HH_MM_SS.json`, so a
-    plain lexicographic sort over filenames matching that pattern is
-    equivalent to chronological order. Other files in the calibrations
-    directory (e.g. calib_exceptions.json) are ignored.
+    Calibration files are named like `YYYY_MM_DD__HH_MM_SS.json`, so a plain
+    lexicographic sort is equivalent to chronological order.
     """
-    if not os.path.isdir(directory):
-        raise RuntimeError(f"Calibration directory not found: {directory!r}.")
-
-    candidates = sorted(
-        f for f in os.listdir(directory) if CALIBRATION_FILENAME_RE.match(f)
-    )
+    pattern = os.path.join(directory, CALIBRATION_GLOB)
+    candidates = sorted(glob.glob(pattern))
     if not candidates:
         raise RuntimeError(
-            f"No timestamped calibration files (YYYY_MM_DD__HH_MM_SS.json) "
-            f"found in {directory!r}."
+            f"No calibration files found in {directory!r} (pattern {pattern!r})."
         )
-    return os.path.join(directory, candidates[-1])
+    return candidates[-1]
 
 
 class QmioBackendAdapter(BackendAdapter):

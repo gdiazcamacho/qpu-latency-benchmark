@@ -4,7 +4,7 @@ backend: fake
 output_db: output/db/timing_results.sqlite
 
 sweep:
-  depths: [0, 1, 2, 4, 8, 16, 32, 64]
+  depths: [0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
 controls:
   n_circuits: 1
