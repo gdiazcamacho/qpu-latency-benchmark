@@ -46,7 +46,7 @@ _DEFAULT_POINT = {
     "logical_depth": 0,
     "shots": 1000,
     "n_qubits": 2,
-    "circuit_family": "single_qubit_layers",
+    "circuit_family": "single_qubit",
 }
 
 
@@ -71,7 +71,7 @@ def _normalize_point(point: Dict[str, Any]) -> Dict[str, Any]:
     out["shots"] = int(out["shots"])
     out["n_qubits"] = int(out["n_qubits"])
     out["repetition"] = int(out.get("repetition", 0))
-    out["circuit_family"] = str(out.get("circuit_family", "single_qubit_layers"))
+    out["circuit_family"] = str(out.get("circuit_family", "single_qubit"))
     out["experiment_type"] = str(out.get("experiment_type", "full_matrix"))
     out["sweep_variable"] = out.get("sweep_variable")
     return out
@@ -93,7 +93,7 @@ def expand_matrix(matrix_cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
                             "shots": shots,
                             "n_qubits": n_qubits,
                             "repetition": repetition,
-                            "circuit_family": matrix_cfg.get("circuit_family", "single_qubit_layers"),
+                            "circuit_family": matrix_cfg.get("circuit_family", "single_qubit"),
                             "experiment_type": matrix_cfg.get("experiment_type", "full_matrix"),
                             "sweep_variable": "full_matrix",
                         }))
@@ -116,17 +116,28 @@ def expand_probe(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     raw_sweep_key, sweep_values = next(iter(sweep.items()))
     sweep_key = _canonical_key(raw_sweep_key)
 
+    circuit_family = config.get("circuit_family", controls.get("circuit_family", "single_qubit"))
+
+    # Validate the sweep axis against the family's declared valid_axes,
+    # e.g. rejects sweeping logical_depth for family="qft", where depth
+    # is structurally derived from n_qubits rather than independently
+    # settable. Import here (not at module top) to avoid a hard
+    # dependency on qiskit for callers that only need point expansion.
+    from latency_benchmark.experiments.families import get_family
+    spec = get_family(circuit_family)
+    if sweep_key not in spec.valid_axes:
+        raise ValueError(
+            f"Cannot sweep {sweep_key!r} for circuit_family={circuit_family!r}. "
+            f"Valid sweep axes for this family: {sorted(spec.valid_axes)}"
+        )
+
     base = {}
     for k, v in controls.items():
-        if k in ("repetitions", "randomize_order"):
+        if k in ("repetitions", "randomize_order", "circuit_family"):
             continue
-        if k == "circuit_family":
-            base[k] = v
-        else:
-            base[_canonical_key(k)] = v
+        base[_canonical_key(k)] = v
 
     repetitions = int(config.get("repetitions", controls.get("repetitions", 1)))
-    circuit_family = config.get("circuit_family", controls.get("circuit_family", "single_qubit_layers"))
     randomize_order = bool(config.get("randomize_order", controls.get("randomize_order", False)))
 
     points = []

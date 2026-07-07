@@ -1,0 +1,3 @@
+backend: fake
+output_db: output/db/timing_results.sqlite
+backend_options: {}

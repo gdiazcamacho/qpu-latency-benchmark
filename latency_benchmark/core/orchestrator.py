@@ -16,7 +16,7 @@ from qiskit import transpile
 
 from .database import TimingDatabase
 from .models import TimingJobRecord
-from latency_benchmark.experiments.builders.synthetic_circuits import build_circuit_batch
+from latency_benchmark.experiments.families import build_circuit_batch
 from latency_benchmark.experiments.strategies.matrix import expand_experiment
 from latency_benchmark.backends.factory import make_backend_adapter
 
@@ -31,6 +31,11 @@ class TimingOrchestrator:
             config.get("backend_options", {}),
         )
         self.backend = self.backend_adapter.get_backend()
+        # Optional, opt-in, off by default: local circuit serialization
+        # cost per format (e.g. ["qasm2", "qasm3"]). Decoupled diagnostic --
+        # never affects walltime_total or what's actually submitted. See
+        # experiments/ir_formats.py for details and open questions.
+        self.ir_formats = config.get("ir_formats", [])
 
     def run(self):
         points = expand_experiment(self.config)
@@ -78,6 +83,10 @@ class TimingOrchestrator:
             "submission_mode": "batched",
         }
 
+        # Diagnostic only, never affects walltime_total: measure local
+        # serialization cost on one representative circuit if requested.
+        ir_times = self._measure_ir_times(circuits_to_run)
+
         t0 = time.perf_counter()
         try:
             job = self.backend.run(circuits_to_run, shots=point["shots"])
@@ -106,7 +115,8 @@ class TimingOrchestrator:
 
         self._save_record(point, transpiled_depths, walltime_total,
                           walltime_backend_run, walltime_result_wait,
-                          success, error_message, metadata, result)
+                          success, error_message, metadata, result,
+                          ir_times=ir_times)
 
     def _run_point_per_circuit(self, point: Dict, circuits):
         """Submit and time circuits one at a time.
@@ -156,6 +166,9 @@ class TimingOrchestrator:
             "submission_mode": "per_circuit",
         }
 
+        # Diagnostic only, never affects walltime_total.
+        ir_times = self._measure_ir_times(transpiled_circuits)
+
         t_point_start = time.perf_counter()
         try:
             for tqc in transpiled_circuits:
@@ -193,11 +206,25 @@ class TimingOrchestrator:
         self._save_record(point, transpiled_depths, walltime_total,
                           walltime_backend_run if success else None,
                           walltime_result_wait if success else None,
-                          success, error_message, metadata, last_result)
+                          success, error_message, metadata, last_result,
+                          ir_times=ir_times)
+
+    def _measure_ir_times(self, circuits) -> Dict:
+        """Diagnostic only: local serialization cost for one representative
+        circuit, if ir_formats was requested. Never affects walltime_total
+        or what's actually submitted to the backend."""
+        if not self.ir_formats or not circuits:
+            return {}
+        from latency_benchmark.experiments.ir_formats import measure_serialization_times
+        try:
+            return measure_serialization_times(circuits[0], formats=self.ir_formats)
+        except Exception as exc:
+            print(f"IR-format timing warning: {exc}", flush=True)
+            return {}
 
     def _save_record(self, point: Dict, transpiled_depths, walltime_total,
                       walltime_backend_run, walltime_result_wait,
-                      success, error_message, metadata, result):
+                      success, error_message, metadata, result, ir_times=None):
 
         record = TimingJobRecord(
             backend=self.backend_name,
@@ -231,3 +258,12 @@ class TimingOrchestrator:
             if events:
                 self.db.save_timing_events(events)
                 print(f"  Stored {len(events)} timing events for job db_id={job_db_id}", flush=True)
+
+        # IR-format serialization diagnostics, if requested (opt-in, off by default)
+        if ir_times:
+            events = [
+                {"timing_job_id": job_db_id, "circuit_index": 0, "event_name": name, "duration": dur}
+                for name, dur in ir_times.items() if dur is not None
+            ]
+            if events:
+                self.db.save_timing_events(events)

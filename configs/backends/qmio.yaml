@@ -1,0 +1,6 @@
+backend: qmio
+output_db: output/db/timing_results.sqlite
+backend_options:
+  # If null, the latest file in calibration_dir is used automatically.
+  calibration_file: null
+  calibration_dir: /opt/cesga/qmio/hpc/calibrations
