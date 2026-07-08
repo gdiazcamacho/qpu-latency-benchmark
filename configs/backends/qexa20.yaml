@@ -6,3 +6,5 @@ backend_options:
   url: null
   port: null
   decompose_to_basis: true
+  optimization_level: 0
+  seed_transpiler: 42

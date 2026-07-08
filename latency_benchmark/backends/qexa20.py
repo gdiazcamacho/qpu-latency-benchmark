@@ -78,7 +78,8 @@ class QExa20BackendAdapter(BackendAdapter):
         return False
 
     def transpile_circuit(self, circuit, backend, optimization_level: int = 0,
-                           initial_layout=None, decompose_to_basis: bool = False):
+                           initial_layout=None, decompose_to_basis: bool = False,
+                           seed_transpiler=None):
         """Transpile a single circuit for submission to QExa20.
 
         Decomposes to the backend's native basis via Qiskit's transpiler.
@@ -107,6 +108,8 @@ class QExa20BackendAdapter(BackendAdapter):
             backend=backend,
             initial_layout=layout,
             optimization_level=optimization_level,
+            seed_transpiler=seed_transpiler,
+
         )
 
         if decompose_to_basis:
@@ -114,6 +117,7 @@ class QExa20BackendAdapter(BackendAdapter):
                 tqc,
                 basis_gates=["u", "cx"],
                 optimization_level=0,
+                seed_transpiler=seed_transpiler,
             )
 
         return tqc

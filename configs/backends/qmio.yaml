@@ -4,3 +4,5 @@ backend_options:
   # If null, the latest file in calibration_dir is used automatically.
   calibration_file: null
   calibration_dir: /opt/cesga/qmio/hpc/calibrations
+  optimization_level: 0
+  seed_transpiler: 42

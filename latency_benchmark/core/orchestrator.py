@@ -60,9 +60,13 @@ class TimingOrchestrator:
             self._run_point_per_circuit(point, circuits)
 
     def _run_point_batched(self, point: Dict, circuits):
+        optimization_level = self.config.get("backend_options", {}).get("optimization_level", 0)
+        seed_transpiler = self.config.get("backend_options", {}).get("seed_transpiler", 42)
+        
         transpiled_depths = None
         try:
-            tcirc = transpile(circuits, backend=self.backend)
+            tcirc = transpile(circuits, backend=self.backend, optimization_level=optimization_level,
+                              seed_transpiler=seed_transpiler)
             transpiled_depths = [c.depth() for c in tcirc]
             circuits_to_run = tcirc
         except Exception as exc:
@@ -131,7 +135,8 @@ class TimingOrchestrator:
         optimization_level = self.config.get("backend_options", {}).get("optimization_level", 0)
         initial_layout = self.config.get("backend_options", {}).get("initial_layout")
         decompose_to_basis = self.config.get("backend_options", {}).get("decompose_to_basis", False)
-
+        seed_transpiler = self.config.get("backend_options", {}).get("seed_transpiler", 42)
+        
         transpiled_depths = []
         transpiled_circuits = []
         try:
@@ -142,11 +147,13 @@ class TimingOrchestrator:
                         optimization_level=optimization_level,
                         initial_layout=initial_layout,
                         decompose_to_basis=decompose_to_basis,
+                        seed_transpiler=seed_transpiler,
                     )
                 else:
                     tqc = transpile(circ, backend=self.backend,
                                      optimization_level=optimization_level,
-                                     initial_layout=initial_layout)
+                                     initial_layout=initial_layout,
+                                     seed_transpiler=seed_transpiler)
                 transpiled_circuits.append(tqc)
                 transpiled_depths.append(tqc.depth())
         except Exception as exc:
