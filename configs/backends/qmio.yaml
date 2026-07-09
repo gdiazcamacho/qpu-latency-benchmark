@@ -4,5 +4,9 @@ backend_options:
   # If null, the latest file in calibration_dir is used automatically.
   calibration_file: null
   calibration_dir: /opt/cesga/qmio/hpc/calibrations
+  # Explicit and matching configs/backends/qexa20.yaml's value -- see
+  # orchestrator.py's _run_point_batched comment for why this matters:
+  # comparing transpiled depth across backends is only meaningful if both
+  # use the same optimization_level.
   optimization_level: 0
   seed_transpiler: 42

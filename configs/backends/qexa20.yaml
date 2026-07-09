@@ -6,5 +6,9 @@ backend_options:
   url: null
   port: null
   decompose_to_basis: true
+  # Explicit and matching configs/backends/qmio.yaml's value. Was
+  # previously hardcoded to 0 only in code (qexa20.py's transpile_circuit
+  # default) with no equivalent override on QMIO's code path at all --
+  # see orchestrator.py's _run_point_batched comment.
   optimization_level: 0
   seed_transpiler: 42

@@ -9,9 +9,9 @@ routing is NOT happening -- the reported "transpiled depth" does not
 reflect real connectivity constraints and should not be trusted as a
 connectivity comparison.
 
-Run on the cluster (needs the real backend object):
-    python check_routing.py qmio
-    python check_routing.py qexa20
+Run from the repo root (needs the real backend object):
+    python scripts/check_routing.py qmio
+    python scripts/check_routing.py qexa20
 """
 import sys
 sys.path.insert(0, ".")

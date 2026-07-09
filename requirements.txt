@@ -1,6 +1,0 @@
-qiskit
-qiskit-aer
-pyyaml
-numpy
-pandas
-matplotlib

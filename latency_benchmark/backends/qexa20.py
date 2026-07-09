@@ -88,6 +88,15 @@ class QExa20BackendAdapter(BackendAdapter):
         circuit.metadata["initial_layout"] if present, falling back to the
         adapter-level default.
 
+        seed_transpiler pins the routing pass's random seed. Without this,
+        routing algorithms (used at any optimization_level for sparse
+        coupling maps) are stochastic and can produce meaningfully
+        different depths for the identical circuit across separate
+        process invocations -- confirmed on this project when a repeat
+        transpile of the same n=8 QFT circuit gave depth 742 in one run
+        and 541 in another. Always pass an explicit seed for reproducible,
+        comparable depth measurements.
+
         If decompose_to_basis is True, an additional transpile pass to
         basis_gates=["u", "cx"] is applied. This works around a known issue
         where Qiskit serializes parametrized custom gates (e.g. "r_<addr>")
@@ -109,7 +118,6 @@ class QExa20BackendAdapter(BackendAdapter):
             initial_layout=layout,
             optimization_level=optimization_level,
             seed_transpiler=seed_transpiler,
-
         )
 
         if decompose_to_basis:

@@ -25,7 +25,7 @@ from latency_benchmark.analysis.fit_models import fit_linear_N, fit_linear_N_dep
 
 def _depth_cmap(depths):
     unique = sorted(set(depths))
-    cmap = cm.get_cmap("viridis", len(unique))
+    cmap = plt.get_cmap("viridis", len(unique))
     return {d: cmap(i) for i, d in enumerate(unique)}
 
 

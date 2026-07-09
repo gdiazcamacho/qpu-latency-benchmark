@@ -42,6 +42,7 @@ class QmioBackendAdapter(BackendAdapter):
 
     def __init__(self, **kwargs):
         self.options = kwargs
+        self._resolved_calibration_file = None
 
     def get_backend(self):
         from qmiotools.integrations.qiskitqmio import QmioBackend
@@ -52,7 +53,17 @@ class QmioBackendAdapter(BackendAdapter):
         if not calibration_file:
             calibration_file = find_latest_calibration_file(calibration_dir)
 
+        # Record what was ACTUALLY resolved and loaded, not just the config
+        # value (which may be null/"auto"). Without this, metadata_json
+        # can't distinguish runs on different calibration snapshots --
+        # relevant since calibration drift can shift which physical qubits
+        # are excluded, changing routing distance and therefore depth.
+        self._resolved_calibration_file = calibration_file
+
         return QmioBackend(calibration_file=calibration_file)
 
     def metadata(self):
-        return {"backend_options": self.options}
+        meta = {"backend_options": self.options}
+        if self._resolved_calibration_file:
+            meta["resolved_calibration_file"] = self._resolved_calibration_file
+        return meta

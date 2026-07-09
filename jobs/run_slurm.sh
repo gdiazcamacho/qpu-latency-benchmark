@@ -5,6 +5,18 @@
 #SBATCH -t 01:00:00
 #SBATCH -o output/raw/%x_%j.out
 #SBATCH -e output/raw/%x_%j.err
+# ============================================================================
+# SITE-SPECIFIC -- this script is written for CESGA's SLURM cluster.
+# If you are running this at a different site, you will need to edit:
+#   - #SBATCH -p qpu          (the partition/queue name for your cluster)
+#   - the `module load` line below (your site's module names/versions for
+#     Python, Qiskit, and any backend-specific client library)
+#   - -t 01:00:00              (increase if your sweeps run long; a QMIO
+#     job hitting this limit mid-sweep fails SILENTLY -- points after the
+#     cutoff are simply missing from the DB, with no error row logged)
+# Everything else (REPO_ROOT resolution, argument forwarding, resolved-config
+# dump) is generic and should work unchanged at any SLURM site.
+# ============================================================================
 # Generic SLURM runner for backends needing a QPU-attached compute node
 # (qmio, fake). Forwards all arguments to run_experiment.
 #
@@ -33,6 +45,7 @@ echo " Args: $*"
 echo "========================================="
 
 module purge || true
+# SITE-SPECIFIC: CESGA module names/versions -- edit for your cluster.
 module load qmio/hpc gcc/12.3.0 qmio-tools/0.2.1-python-3.11.9 qiskit/1.2.4-python-3.11.9 || true
 
 echo "START $(date +%s.%N)"

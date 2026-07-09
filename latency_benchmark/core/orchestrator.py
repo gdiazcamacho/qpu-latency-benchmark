@@ -60,9 +60,19 @@ class TimingOrchestrator:
             self._run_point_per_circuit(point, circuits)
 
     def _run_point_batched(self, point: Dict, circuits):
+        # Read from backend_options so both submission paths (batched here,
+        # per-circuit in _run_point_per_circuit) use the same explicit,
+        # config-visible optimization_level -- previously this path had no
+        # override at all and silently used Qiskit's own default (level 2),
+        # while the per-circuit path defaulted to 0. That mismatch made any
+        # transpiled-depth comparison between backends using different
+        # submission paths (e.g. QMIO vs QExa20) meaningless: depth
+        # differences reflected the optimization-level mismatch, not real
+        # hardware connectivity. Both configs/backends/*.yaml now set this
+        # explicitly to the same value for fair comparison.
         optimization_level = self.config.get("backend_options", {}).get("optimization_level", 0)
         seed_transpiler = self.config.get("backend_options", {}).get("seed_transpiler", 42)
-        
+
         transpiled_depths = None
         try:
             tcirc = transpile(circuits, backend=self.backend, optimization_level=optimization_level,
@@ -136,7 +146,7 @@ class TimingOrchestrator:
         initial_layout = self.config.get("backend_options", {}).get("initial_layout")
         decompose_to_basis = self.config.get("backend_options", {}).get("decompose_to_basis", False)
         seed_transpiler = self.config.get("backend_options", {}).get("seed_transpiler", 42)
-        
+
         transpiled_depths = []
         transpiled_circuits = []
         try:

@@ -1,8 +1,8 @@
 """Plot one-dimensional latency probes.
 
 Examples:
-    python -m timing_benchmark.analysis.plot_probe --db output/db/timing_results.sqlite --experiment-name shot_scaling_qmio
-    python -m timing_benchmark.analysis.plot_probe --db output/db/timing_results.sqlite --backend qmio --experiment-type batch_scaling
+    python -m latency_benchmark.analysis.plot_probe --db output/db/timing_results.sqlite --experiment-name shot_scaling_qmio
+    python -m latency_benchmark.analysis.plot_probe --db output/db/timing_results.sqlite --backend qmio --experiment-type batch_scaling
 """
 
 import argparse

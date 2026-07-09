@@ -11,7 +11,43 @@ a timing model to the result, so hidden backend behavior (queueing,
 compilation cost, execution scaling) can be inferred and compared across
 platforms.
 
-## Three orthogonal axes, not a file per combination
+## Installation
+
+**Local development / `fake` backend only** (no real hardware access needed):
+
+```bash
+git clone <this-repo>
+cd qpu-latency-benchmark
+pip install -e .
+cp .env.example .env   # not needed for fake, but harmless to have
+python -m latency_benchmark.run_experiment --backend fake --family qft --axis width
+```
+
+`pip install -e .` covers everything needed for `--backend fake`: qiskit,
+qiskit-aer, pyyaml, numpy, pandas, matplotlib. If this is your first time
+in the repo, start here -- it requires no credentials, no cluster access,
+and exercises the full pipeline (config building, circuit families,
+orchestration, SQLite output, analysis) end to end.
+
+**QMIO (CESGA)**: not pip-installable -- `qmio-tools` and a matching Qiskit
+version come from CESGA's environment modules, loaded via
+`module load qmio/hpc qmio-tools/... qiskit/...` (see `jobs/run_slurm.sh`,
+which has the exact module versions currently in use -- these are
+CESGA-specific and may need updating as the module stack evolves). You'll
+also need calibration file read access at
+`configs/backends/qmio.yaml`'s `calibration_dir` -- ask your CESGA contact
+if `find_latest_calibration_file()` (in `backends/qmio.py`) can't find
+anything there.
+
+**QExa20 (LRZ via MQSS)**: needs the `mqss.qiskit_adapter` package (not on
+public PyPI -- ask your LRZ/MQSS contact for access) and an API token. Copy
+`.env.example` to `.env` and fill in `MQSS_TOKEN` (and `MQSS_URL`/
+`MQSS_PORT` if different from the defaults). `.env` is gitignored --
+never commit it. `jobs/run_direct.sh` sources `.env` automatically; if
+running commands manually (e.g. `check_routing.py`), source it yourself
+first: `set -a; source .env; set +a`.
+
+
 
 Every probe is defined by three independent choices:
 
@@ -102,6 +138,32 @@ walltime rather than just local compile cost. `backends/base.py` has a
 `supports_ir_formats()` stub (defaults `False` everywhere) as the seam for
 wiring that in once confirmed.
 
+## Deeper overhead-decomposition analysis
+
+`fit_probe.py` (documented above) fits the simple registry model
+(linear or quadratic) for a single probe. Three additional tools implement
+the project's original `T = T0 + alpha*N (+ beta*depth)` overhead model,
+with automatic term selection, across any probe already in the database:
+
+```bash
+# Fit T0 (fixed overhead) + alpha (per-circuit cost), auto-adding a
+# depth term only if it meaningfully improves R²
+python -m latency_benchmark.analysis.fit_models \
+    --db output/db/timing_results_<date>.sqlite \
+    --experiment-name single_qubit_batch_qmio
+
+# Same model, fit and compared across every backend present in the DB,
+# plus a summary figure
+python -m latency_benchmark.analysis.compare_backends \
+    --db output/db/timing_results_<date>.sqlite
+
+# 4-panel diagnostic figure: walltime vs N, per-circuit overhead vs N,
+# backend_run/result_wait breakdown, residuals
+python -m latency_benchmark.analysis.plot_overheads \
+    --db output/db/timing_results_<date>.sqlite --backend qmio \
+    --outdir output/figures
+```
+
 ## Data collection
 
 Results go to a date-stamped SQLite DB (`output/db/timing_results_<date>.sqlite`)
@@ -124,7 +186,6 @@ defaults + any CLI overrides rather than a single hand-authored file.
 ```text
 configs/
     backends/          # qmio.yaml, qexa20.yaml, fake.yaml -- connection only
-    legacy/             # old-style full-matrix configs, still runnable via --config
 
 jobs/
     run_slurm.sh         # generic SLURM wrapper (qmio, fake)
@@ -179,6 +240,60 @@ No changes needed to families, axes, or analysis -- those are backend-independen
 5. If it's an entangling/structured circuit, consider a one-time
    correctness check under `scripts/`, following
    `check_qft_correctness.py` as a template.
+
+## Common issues
+
+- **`MQSS_TOKEN is not set. Aborting.`** -- `.env` is missing or wasn't
+  sourced. `jobs/run_direct.sh` sources it automatically; if you're
+  running a script directly (e.g. `check_routing.py`, or any manual
+  `python` invocation), source it yourself first:
+  `set -a; source .env; set +a`.
+
+- **A SLURM sweep is missing some points, with no error rows in the DB**
+  -- almost always the job hit `run_slurm.sh`'s `-t` time limit and was
+  killed mid-sweep. SLURM gives no chance to log a failure for points that
+  never got to run. Increase the time limit for large sweeps, e.g.
+  `sbatch --time=02:00:00 jobs/run_slurm.sh ...` (overrides the script's
+  `#SBATCH -t` directive, no file edit needed). Check
+  `output/raw/<jobname>_<jobid>.out` for a truncated point count as
+  confirmation.
+
+- **`Repo: /var/spool/slurmd` in a job's `.out` log, followed by an
+  import error** -- SLURM copies submitted scripts to a spool directory
+  before executing them, so `${BASH_SOURCE[0]}` no longer points at the
+  real repo. `jobs/run_slurm.sh` already handles this via
+  `SLURM_SUBMIT_DIR`; if you've written a new job script from scratch
+  instead of copying `run_slurm.sh`, make sure it does the same.
+
+- **QExa20 prints `Warning: Instruction 'if_else' not found in the
+  instruction_map` / similar** -- benign, comes from MQSS's instruction-set
+  metadata not covering every Qiskit control-flow instruction. Doesn't
+  affect circuits that don't use those instructions (none of the current
+  circuit families do).
+
+- **Comparing `transpiled_depth_mean` across two runs and getting
+  different numbers for the identical circuit/backend** -- check
+  `backend_options.seed_transpiler` is set (both `configs/backends/*.yaml`
+  default to `42`). Without a fixed seed, Qiskit's routing pass is
+  stochastic and can produce meaningfully different depths for the same
+  input across separate process launches -- this was a real, confusing
+  bug hunted down during this project's development; see
+  `scripts/check_routing.py` for the verification tool that catches it.
+
+- **Comparing depth/connectivity across backends and the result looks
+  backwards** -- confirm `optimization_level` matches in both
+  `configs/backends/*.yaml`. A mismatched optimization level changes
+  transpiled depth independently of any real hardware difference, and can
+  produce a comparison that's precisely inverted from the truth (this
+  happened during development: QMIO appeared to have *better*
+  connectivity than QExa20 until this was fixed, when it turned out to
+  have worse connectivity, as expected from the two backends' real
+  coupling maps).
+
+- **`<date>` in a command from this README or from your own notes** -- that's
+  a placeholder, not literal syntax; bash will try to interpret it as a
+  redirection and fail. Substitute the real date from the `Output DB: ...`
+  line printed at the start of every run, or `ls output/db/`.
 
 ## Future directions
 
