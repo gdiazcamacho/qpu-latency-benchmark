@@ -241,63 +241,8 @@ No changes needed to families, axes, or analysis -- those are backend-independen
    correctness check under `scripts/`, following
    `check_qft_correctness.py` as a template.
 
-## Common issues
-
-- **`MQSS_TOKEN is not set. Aborting.`** -- `.env` is missing or wasn't
-  sourced. `jobs/run_direct.sh` sources it automatically; if you're
-  running a script directly (e.g. `check_routing.py`, or any manual
-  `python` invocation), source it yourself first:
-  `set -a; source .env; set +a`.
-
-- **A SLURM sweep is missing some points, with no error rows in the DB**
-  -- almost always the job hit `run_slurm.sh`'s `-t` time limit and was
-  killed mid-sweep. SLURM gives no chance to log a failure for points that
-  never got to run. Increase the time limit for large sweeps, e.g.
-  `sbatch --time=02:00:00 jobs/run_slurm.sh ...` (overrides the script's
-  `#SBATCH -t` directive, no file edit needed). Check
-  `output/raw/<jobname>_<jobid>.out` for a truncated point count as
-  confirmation.
-
-- **`Repo: /var/spool/slurmd` in a job's `.out` log, followed by an
-  import error** -- SLURM copies submitted scripts to a spool directory
-  before executing them, so `${BASH_SOURCE[0]}` no longer points at the
-  real repo. `jobs/run_slurm.sh` already handles this via
-  `SLURM_SUBMIT_DIR`; if you've written a new job script from scratch
-  instead of copying `run_slurm.sh`, make sure it does the same.
-
-- **QExa20 prints `Warning: Instruction 'if_else' not found in the
-  instruction_map` / similar** -- benign, comes from MQSS's instruction-set
-  metadata not covering every Qiskit control-flow instruction. Doesn't
-  affect circuits that don't use those instructions (none of the current
-  circuit families do).
-
-- **Comparing `transpiled_depth_mean` across two runs and getting
-  different numbers for the identical circuit/backend** -- check
-  `backend_options.seed_transpiler` is set (both `configs/backends/*.yaml`
-  default to `42`). Without a fixed seed, Qiskit's routing pass is
-  stochastic and can produce meaningfully different depths for the same
-  input across separate process launches -- this was a real, confusing
-  bug hunted down during this project's development; see
-  `scripts/check_routing.py` for the verification tool that catches it.
-
-- **Comparing depth/connectivity across backends and the result looks
-  backwards** -- confirm `optimization_level` matches in both
-  `configs/backends/*.yaml`. A mismatched optimization level changes
-  transpiled depth independently of any real hardware difference, and can
-  produce a comparison that's precisely inverted from the truth (this
-  happened during development: QMIO appeared to have *better*
-  connectivity than QExa20 until this was fixed, when it turned out to
-  have worse connectivity, as expected from the two backends' real
-  coupling maps).
-
-- **`<date>` in a command from this README or from your own notes** -- that's
-  a placeholder, not literal syntax; bash will try to interpret it as a
-  redirection and fail. Substitute the real date from the `Output DB: ...`
-  line printed at the start of every run, or `ls output/db/`.
-
 ## Future directions
 
-* Changepoint detection for the single-qubit width/depth "jump" hypothesis
 * Confirming whether QExa20/QMIO client libraries support caller-chosen IR
   formats at submission time (vs. local-only serialization timing)
 * Cross-platform latency comparison reporting
