@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "QPU Latency Benchmark"
+abstract: >-
+  Benchmark suite that decomposes the wall time of quantum jobs into
+  submission overhead and quantum execution, by sweeping shots, circuits
+  per submission, circuit depth and circuit width, and fitting a timing
+  model per platform.
+type: software
+authors:
+  - family-names: "Díaz Camacho"
+    given-names: "Guillermo"
+    orcid: "https://orcid.org/0009-0007-5839-6617"
+    affiliation: "Galicia Supercomputing Centre (CESGA)"
+version: 0.1.0
+date-released: "2026-09-28"
+license: Apache-2.0
+repository-code: "https://github.com/gdiazcamacho/qpu-latency-benchmark"
+keywords:
+  - quantum computing
+  - benchmarking
+  - latency
+  - HPC-QC integration

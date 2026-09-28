@@ -1,5 +1,8 @@
 # QPU Latency Benchmark
 
+[![tests](https://github.com/gdiazcamacho/qpu-latency-benchmark/actions/workflows/tests.yml/badge.svg)](https://github.com/gdiazcamacho/qpu-latency-benchmark/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 A benchmarking framework for characterizing latency, overheads, and execution
 scaling on quantum computing platforms (currently: QMIO at CESGA, QExa20 at
 LRZ via MQSS, and a local AerSimulator "fake" backend for development).
@@ -47,7 +50,7 @@ never commit it. `jobs/run_direct.sh` sources `.env` automatically; if
 running commands manually (e.g. `check_routing.py`), source it yourself
 first: `set -a; source .env; set +a`.
 
-
+## How a probe is defined
 
 Every probe is defined by three independent choices:
 
@@ -360,4 +363,41 @@ No changes needed to families, axes, or analysis -- those are backend-independen
   currently bundles queue + execution + network. Needs server-side
   timestamps from the respective client libraries.
 * Cross-platform latency comparison reporting
+<<<<<<< HEAD
 * Additional backend adapters
+=======
+* Additional backend adapters
+
+## Running the tests
+
+The test suite runs one small sweep per axis on the `fake` backend, end to
+end through the CLI, so it needs no credentials or hardware:
+
+```bash
+pip install -e ".[test]"
+pytest -q
+```
+
+The same tests run on every push and pull request (see
+`.github/workflows/tests.yml`).
+
+## Citation
+
+If you use this software, please cite it using the metadata in
+[`CITATION.cff`](CITATION.cff) (GitHub shows a "Cite this repository"
+button for it).
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See
+[`NOTICE`](NOTICE) for attribution.
+
+## Acknowledgements
+
+Developed at the Galicia Supercomputing Centre (CESGA) within Task 4.1 of
+the QEX Quantum Excellence Centre. This project has received funding from
+the European High-Performance Computing Joint Undertaking under grant
+agreement 101194491. CESGA is co-funded by MICIU/AEI/10.13039/501100011033,
+grant number PCI2025-163133. QExa20 measurements were performed through the
+Munich Quantum Software Stack at LRZ.
+>>>>>>> Prepare v0.1.0: licence, citation, tests and packaging fixes
