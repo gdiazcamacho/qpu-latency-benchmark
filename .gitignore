@@ -1,15 +1,3 @@
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-
-output/db/*.sqlite
-output/raw/*
-output/figures/*
-output/reports/*
-
-*.out
-*.err
-.DS_Store
 # Python
 __pycache__/
 *.py[cod]
@@ -27,19 +15,20 @@ conda-meta/
 
 # Jupyter
 .ipynb_checkpoints/
+notebooks/*.ipynb
 
-# IDEs
+# IDEs and OS files
 .vscode/
 .idea/
-
-# OS files
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs and SLURM output
 *.log
 *.out
 *.err
+slurm-*.out
+slurm-*.err
 
 # Coverage / testing
 .coverage
@@ -51,35 +40,25 @@ build/
 dist/
 *.egg-info/
 
-# SQLite databases
+# Results: databases and generated outputs stay out of the repository
 *.sqlite
 *.sqlite3
 *.db
-
-# Generated outputs
 output/raw/*
 output/figures/*
 output/reports/*
-
-# Keep directory structure
 !output/raw/.gitkeep
 !output/figures/.gitkeep
 !output/reports/.gitkeep
-
-# Generated notebooks
-notebooks/*.ipynb
 
 # Temporary files
 *.tmp
 *.bak
 *.swp
 
-# MQSS / HPC leftovers
-slurm-*.out
-slurm-*.err
-
 # Secrets and credentials
 .env
 .env.*
+!.env.example
 token.txt
 credentials.json
