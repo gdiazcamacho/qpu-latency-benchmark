@@ -37,6 +37,19 @@ class TimingOrchestrator:
         # experiments/ir_formats.py for details and open questions.
         self.ir_formats = config.get("ir_formats", [])
 
+        # Fail loudly rather than silently ignoring a requested wire
+        # format on a backend that can't honour it -- a silently-ignored
+        # experimental control produces results that look meaningful but
+        # aren't.
+        requested_wire_format = config.get("backend_options", {}).get("wire_format")
+        if requested_wire_format is not None and not self.backend_adapter.supports_ir_formats():
+            raise ValueError(
+                f"backend_options.wire_format={requested_wire_format!r} was requested, but the "
+                f"{self.backend_name!r} adapter does not support caller-chosen wire formats "
+                f"(supports_ir_formats() is False), so the setting would be silently ignored. "
+                f"Remove it, or implement wire-format support in that adapter."
+            )
+
     def run(self):
         points = expand_experiment(self.config)
         experiment_type = self.config.get("experiment_type", self.config.get("matrix", {}).get("experiment_type", "full_matrix"))
@@ -101,9 +114,11 @@ class TimingOrchestrator:
         # serialization cost on one representative circuit if requested.
         ir_times = self._measure_ir_times(circuits_to_run)
 
+        run_kwargs = self.backend_adapter.run_options()
+
         t0 = time.perf_counter()
         try:
-            job = self.backend.run(circuits_to_run, shots=point["shots"])
+            job = self.backend.run(circuits_to_run, shots=point["shots"], **run_kwargs)
             t1 = time.perf_counter()
             result = job.result()
             t2 = time.perf_counter()
@@ -186,11 +201,13 @@ class TimingOrchestrator:
         # Diagnostic only, never affects walltime_total.
         ir_times = self._measure_ir_times(transpiled_circuits)
 
+        run_kwargs = self.backend_adapter.run_options()
+
         t_point_start = time.perf_counter()
         try:
             for tqc in transpiled_circuits:
                 t0 = time.perf_counter()
-                job = self.backend.run(tqc, shots=point["shots"])
+                job = self.backend.run(tqc, shots=point["shots"], **run_kwargs)
                 t1 = time.perf_counter()
                 result = job.result()
                 t2 = time.perf_counter()

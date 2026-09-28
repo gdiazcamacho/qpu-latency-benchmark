@@ -35,11 +35,20 @@ def build_probe_config(
     randomize_order: Optional[bool] = None,
     overrides: Optional[Dict[str, Any]] = None,
     experiment_name: Optional[str] = None,
+    wire_format: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build a full config dict, ready for expand_probe()/TimingOrchestrator.
 
     `overrides` sets fixed controls not being swept (e.g. {"shots": 5000}
     for a width probe), taking precedence over the axis default.
+
+    `wire_format` overrides backend_options.wire_format, selecting the
+    submission format for backends whose adapter supports it. It is not a
+    sweep axis: it's categorical, so comparing formats means running the
+    same family/axis once per format and comparing the resulting
+    experiments (see plot_backend_comparison.py's --experiments). The
+    format is appended to experiment_name so those runs don't collide in
+    the database.
     """
     backend_cfg = load_backend_config(backend)
     axis_default = get_axis_default(family, axis)
@@ -54,14 +63,20 @@ def build_probe_config(
     controls.update(overrides)
     controls["circuit_family"] = family
 
+    backend_options = dict(backend_cfg.get("backend_options", {}))
+    if wire_format is not None:
+        backend_options["wire_format"] = wire_format
+
     name = experiment_name or f"{family}_{axis}_{backend}"
+    if experiment_name is None and wire_format is not None:
+        name = f"{name}_{wire_format}"
 
     config = {
         "experiment_name": name,
         "experiment_type": f"{family}_{axis}",
         "backend": backend_cfg["backend"],
         "output_db": backend_cfg["output_db"],
-        "backend_options": backend_cfg.get("backend_options", {}),
+        "backend_options": backend_options,
         "sweep": {sweep_key: sweep_values},
         "controls": controls,
         "repetitions": repetitions if repetitions is not None else 3,

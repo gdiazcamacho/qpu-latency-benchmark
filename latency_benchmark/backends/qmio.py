@@ -37,12 +37,70 @@ def find_latest_calibration_file(directory: str = DEFAULT_CALIBRATION_DIR) -> st
     return os.path.join(directory, candidates[-1])
 
 
+# Wire formats QMIO's QmioBackend.run() can submit in. "qasm2" is the
+# client library's own default (no flag passed); "qasm3" is selected via
+# run(..., output_qasm3=True).
+#
+# QIR is deliberately NOT here. QMIO can accept QIR, but only through a
+# different submission path entirely: QmioRuntimeService().backend("qpu")
+# with raw bitcode from qiskit_qir.to_qir_module(), rather than
+# QmioBackend.run(). That needs a separate adapter, not a run() flag --
+# see wire_formats() docstring.
+QMIO_WIRE_FORMATS = ("qasm2", "qasm3")
+
+
 class QmioBackendAdapter(BackendAdapter):
     name = "qmio"
 
     def __init__(self, **kwargs):
         self.options = kwargs
         self._resolved_calibration_file = None
+
+        wire_format = self.options.get("wire_format", "qasm2")
+        if wire_format not in QMIO_WIRE_FORMATS:
+            raise ValueError(
+                f"Unsupported wire_format {wire_format!r} for qmio. "
+                f"Supported: {list(QMIO_WIRE_FORMATS)}. "
+                f"(QIR requires a separate submission path via "
+                f"QmioRuntimeService and is not available as a run() flag.)"
+            )
+        self.wire_format = wire_format
+
+    def supports_ir_formats(self) -> bool:
+        """QMIO's QmioBackend.run() genuinely honours a caller-chosen wire
+        format via output_qasm3, and the choice measurably changes real
+        submission time -- not just local serialization cost.
+
+        Measured on QMIO hardware (single-qubit randomized-benchmarking
+        circuits, submission call timed directly): QASM3 cost roughly 3x
+        the submission time of QASM2 at ~600-gate depth (10.1s vs 3.2s),
+        and the gap widened with circuit size rather than staying a fixed
+        offset. Submission time with no flag set matched QASM2's almost
+        exactly, indicating QASM2 is the client's internal default.
+        """
+        return True
+
+    def wire_formats(self):
+        """Wire formats selectable via backend_options.wire_format.
+
+        QIR is absent by design: QMIO does accept QIR, but through
+        QmioRuntimeService + qiskit_qir bitcode rather than
+        QmioBackend.run(), so it can't be expressed as a run() flag and
+        would need its own adapter (a "qmio_qir" backend). Worth doing --
+        QIR measured ~1.6x FASTER than QASM2 at the same depth in the
+        same experiment referenced above -- but it is a separate
+        submission path, not a variant of this one.
+        """
+        return QMIO_WIRE_FORMATS
+
+    def run_options(self):
+        # QmioBackend.run() defaults to its internal QASM2 path when
+        # output_qasm3 is not passed, so only set the flag for qasm3
+        # rather than passing output_qasm3=False explicitly (keeps the
+        # default path byte-identical to not using this feature at all).
+        if self.wire_format == "qasm3":
+            return {"output_qasm3": True}
+        return {}
 
     def get_backend(self):
         from qmiotools.integrations.qiskitqmio import QmioBackend
@@ -66,4 +124,5 @@ class QmioBackendAdapter(BackendAdapter):
         meta = {"backend_options": self.options}
         if self._resolved_calibration_file:
             meta["resolved_calibration_file"] = self._resolved_calibration_file
+        meta["wire_format"] = self.wire_format
         return meta

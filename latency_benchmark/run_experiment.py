@@ -52,7 +52,9 @@ def main():
     parser.add_argument("--n-qubits", type=int, default=None, dest="n_qubits", help="Override fixed n_qubits control")
     parser.add_argument("--randomize-order", dest="randomize_order", action="store_true", default=None)
     parser.add_argument("--no-randomize-order", dest="randomize_order", action="store_false")
-    parser.add_argument("--ir-formats", default=None, help="Comma-separated formats to time (qasm2,qasm3,qir). Opt-in, off by default.")
+    parser.add_argument("--ir-formats", default=None, help="LOCAL diagnostic: comma-separated formats whose serialization cost to time (qasm2,qasm3,qir). Does not change what is submitted. Opt-in, off by default.")
+    parser.add_argument("--wire-format", default=None, dest="wire_format",
+                         help="Format actually SUBMITTED to the backend (e.g. qasm2, qasm3 on qmio). Changes real submission time. Only for backends whose adapter supports it; appended to experiment_name so per-format runs don't collide.")
     parser.add_argument("--experiment-name", default=None, dest="experiment_name")
 
     # Legacy: explicit YAML config path
@@ -85,6 +87,7 @@ def main():
             randomize_order=args.randomize_order,
             overrides=overrides,
             experiment_name=args.experiment_name,
+            wire_format=args.wire_format,
         )
         if args.ir_formats:
             config["ir_formats"] = [f.strip() for f in args.ir_formats.split(",")]

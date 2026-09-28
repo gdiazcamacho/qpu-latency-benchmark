@@ -123,20 +123,69 @@ bash jobs/run_direct.sh --backend qexa20 --family measure_only --axis batch \
   probe; useful for isolating orchestration/queue overhead from any gate
   cost (see the queue-noise example above).
 
-## IR-format serialization timing (opt-in, off by default)
+## Wire format: what actually gets submitted (QMIO only)
 
-`--ir-formats qasm2,qasm3` measures local circuit-serialization cost per
-format as a diagnostic side-measurement, stored in the `timing_events`
-table -- it never affects `walltime_total` or what's actually submitted to
-the backend. Whether choosing a wire format could change *real* submitted
-execution time depends on whether the underlying client library
-(`mqss.qiskit_adapter`, `qmio-tools`) actually accepts a caller-chosen
-format at submission time, or always reconverts internally regardless of
-input -- that's unconfirmed and worth checking directly against those
-libraries before treating IR format as a variable that affects real
-walltime rather than just local compile cost. `backends/base.py` has a
-`supports_ir_formats()` stub (defaults `False` everywhere) as the seam for
-wiring that in once confirmed.
+`--wire-format` selects the intermediate representation actually sent to
+the backend, for adapters that support it. On QMIO this is a real
+experimental control, not a local detail: `QmioBackend.run()` honours it
+via `output_qasm3`, and the choice measurably changes submission time.
+Measured on QMIO hardware with single-qubit randomized-benchmarking
+circuits, timing the submission call directly:
+
+| Wire format | s/gate at ~600-gate depth | submission time, longest circuit |
+|---|---|---|
+| QIR | 0.00154 | 2.11 s |
+| QASM2 (QMIO's default) | 0.00253 | 3.20 s |
+| QASM3 | 0.00796 | 10.10 s |
+
+QASM3 costs roughly 3x QASM2, and the gap *widens* with circuit size
+rather than being a fixed offset. Submission time with no flag set
+matched QASM2 almost exactly, indicating QASM2 is the client library's
+internal default.
+
+Wire format is not a sweep axis -- it's categorical, so comparing formats
+means running the same family/axis once per format and comparing the
+resulting experiments. The format is appended to `experiment_name`
+automatically so runs don't collide:
+
+```bash
+sbatch -J qft_width_qasm2 jobs/run_slurm.sh \
+    --backend qmio --family qft --axis width --wire-format qasm2
+sbatch -J qft_width_qasm3 jobs/run_slurm.sh \
+    --backend qmio --family qft --axis width --wire-format qasm3
+
+python -m latency_benchmark.analysis.plot_backend_comparison \
+    --db output/db/timing_results_<date>.sqlite \
+    --experiments qft_width_qmio_qasm2,qft_width_qmio_qasm3 \
+    --labels QASM2,QASM3 \
+    --output output/figures/qft_width_wireformat.png
+```
+
+Requesting a wire format on a backend whose adapter doesn't support it
+(currently `fake` and `qexa20`) raises an error rather than being
+silently ignored. **QIR is not currently selectable**: QMIO does accept
+QIR, and it is the *fastest* of the three, but only through a different
+submission path (`QmioRuntimeService` + `qiskit_qir` bitcode) rather than
+`QmioBackend.run()` -- adding it means a separate adapter, not a new
+flag value. That's the highest-value open item here, given QIR measured
+~1.6x faster than QASM2.
+
+## Local serialization timing (`--ir-formats`, opt-in, off by default)
+
+Distinct from `--wire-format` above: `--ir-formats qasm2,qasm3` measures
+local circuit-**serialization** cost per format as a diagnostic
+side-measurement, stored in the `timing_events` table. It never affects
+`walltime_total` and never changes what is submitted. Use it to ask "how
+expensive is it to *produce* this representation," independent of any
+backend.
+
+Use `--wire-format` instead to change what is actually submitted and
+measure the real cost. That works only where an adapter reports
+`supports_ir_formats() == True` -- currently QMIO only. For QExa20, whether
+`mqss.qiskit_adapter` accepts a caller-chosen format at submission time or
+always reconverts internally is still unconfirmed; its adapter reports
+`False` until someone checks, so `--wire-format` on QExa20 errors rather
+than silently doing nothing.
 
 ## Deeper overhead-decomposition analysis
 
@@ -241,9 +290,74 @@ No changes needed to families, axes, or analysis -- those are backend-independen
    correctness check under `scripts/`, following
    `check_qft_correctness.py` as a template.
 
+## Common issues
+
+- **`MQSS_TOKEN is not set. Aborting.`** -- `.env` is missing or wasn't
+  sourced. `jobs/run_direct.sh` sources it automatically; if you're
+  running a script directly (e.g. `check_routing.py`, or any manual
+  `python` invocation), source it yourself first:
+  `set -a; source .env; set +a`.
+
+- **A SLURM sweep is missing some points, with no error rows in the DB**
+  -- almost always the job hit `run_slurm.sh`'s `-t` time limit and was
+  killed mid-sweep. SLURM gives no chance to log a failure for points that
+  never got to run. Increase the time limit for large sweeps, e.g.
+  `sbatch --time=02:00:00 jobs/run_slurm.sh ...` (overrides the script's
+  `#SBATCH -t` directive, no file edit needed). Check
+  `output/raw/<jobname>_<jobid>.out` for a truncated point count as
+  confirmation.
+
+- **`Repo: /var/spool/slurmd` in a job's `.out` log, followed by an
+  import error** -- SLURM copies submitted scripts to a spool directory
+  before executing them, so `${BASH_SOURCE[0]}` no longer points at the
+  real repo. `jobs/run_slurm.sh` already handles this via
+  `SLURM_SUBMIT_DIR`; if you've written a new job script from scratch
+  instead of copying `run_slurm.sh`, make sure it does the same.
+
+- **QExa20 prints `Warning: Instruction 'if_else' not found in the
+  instruction_map` / similar** -- benign, comes from MQSS's instruction-set
+  metadata not covering every Qiskit control-flow instruction. Doesn't
+  affect circuits that don't use those instructions (none of the current
+  circuit families do).
+
+- **Comparing `transpiled_depth_mean` across two runs and getting
+  different numbers for the identical circuit/backend** -- check
+  `backend_options.seed_transpiler` is set (both `configs/backends/*.yaml`
+  default to `42`). Without a fixed seed, Qiskit's routing pass is
+  stochastic and can produce meaningfully different depths for the same
+  input across separate process launches -- this was a real, confusing
+  bug hunted down during this project's development; see
+  `scripts/check_routing.py` for the verification tool that catches it.
+
+- **Comparing depth/connectivity across backends and the result looks
+  backwards** -- confirm `optimization_level` matches in both
+  `configs/backends/*.yaml`. A mismatched optimization level changes
+  transpiled depth independently of any real hardware difference, and can
+  produce a comparison that's precisely inverted from the truth (this
+  happened during development: QMIO appeared to have *better*
+  connectivity than QExa20 until this was fixed, when it turned out to
+  have worse connectivity, as expected from the two backends' real
+  coupling maps).
+
+- **`<date>` in a command from this README or from your own notes** -- that's
+  a placeholder, not literal syntax; bash will try to interpret it as a
+  redirection and fail. Substitute the real date from the `Output DB: ...`
+  line printed at the start of every run, or `ls output/db/`.
+
 ## Future directions
 
-* Confirming whether QExa20/QMIO client libraries support caller-chosen IR
-  formats at submission time (vs. local-only serialization timing)
+* Changepoint detection for the single-qubit width/depth "jump" hypothesis
+* A `qmio_qir` adapter submitting via `QmioRuntimeService` + `qiskit_qir`
+  bitcode. QIR measured the *fastest* of the three formats on QMIO
+  (~1.6x faster than QASM2), but it needs a separate submission path
+  rather than a `QmioBackend.run()` flag, so it isn't reachable via
+  `--wire-format` today. Highest-value open item here.
+* Confirming whether `mqss.qiskit_adapter` supports caller-chosen wire
+  formats at submission time; if so, flip QExa20's
+  `supports_ir_formats()` and implement its `run_options()`
+* Separating real QPU execution time from queue wait: no adapter
+  implements `extract_timing_events()` yet, so `walltime_result_wait`
+  currently bundles queue + execution + network. Needs server-side
+  timestamps from the respective client libraries.
 * Cross-platform latency comparison reporting
 * Additional backend adapters

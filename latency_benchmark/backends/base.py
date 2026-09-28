@@ -23,18 +23,34 @@ class BackendAdapter(ABC):
         return True
 
     def supports_ir_formats(self) -> bool:
-        """Whether this backend's run() path can be made to accept a
-        specific, caller-chosen intermediate representation (QASM2/QASM3/
-        QIR) at submission time, such that the choice could affect real
-        wire/execution walltime -- not just local serialization cost.
+        """Whether this backend's run() path accepts a specific,
+        caller-chosen wire format at submission time, such that the choice
+        affects real submitted walltime -- not just local serialization
+        cost.
 
-        Defaults to False everywhere. This is a placeholder seam: no
-        adapter currently implements format-controlled submission. Before
-        flipping this to True for a given backend, confirm the underlying
-        client library (e.g. mqss.qiskit_adapter, qmio-tools) actually
-        accepts a chosen format rather than always reconverting internally
-        regardless of what's passed in. Local serialization-cost
-        measurement (see experiments/ir_formats.py) works regardless of
+        Adapters returning True must also implement wire_formats() and
+        honour backend_options.wire_format in run_options().
+
+        Note this is distinct from experiments/ir_formats.py, which
+        measures LOCAL serialization cost only and works regardless of
         this flag, since it never touches actual submission.
         """
         return False
+
+    def wire_formats(self):
+        """Wire formats this adapter can submit in, if supports_ir_formats().
+
+        Returns an empty tuple by default. The first entry should be the
+        backend's own default (i.e. what you get without setting
+        wire_format at all).
+        """
+        return ()
+
+    def run_options(self) -> Dict[str, Any]:
+        """Extra keyword arguments to pass to backend.run().
+
+        Lets an adapter inject backend-specific submission flags (e.g.
+        QMIO's output_qasm3) without the orchestrator needing to know
+        anything about a particular platform's client API.
+        """
+        return {}

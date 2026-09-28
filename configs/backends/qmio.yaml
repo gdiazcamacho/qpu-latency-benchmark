@@ -10,3 +10,13 @@ backend_options:
   # use the same optimization_level.
   optimization_level: 0
   seed_transpiler: 42
+  # Format actually submitted over the wire: qasm2 (default) or qasm3.
+  # QmioBackend.run() honours this via output_qasm3, and the choice
+  # measurably changes real submission time (QASM3 measured ~3x slower
+  # than QASM2 at ~600-gate depth on QMIO hardware, with the gap widening
+  # as circuits grow). Leave unset for the client library's own default,
+  # which is qasm2. Override per-run with --wire-format.
+  # Note: QIR is NOT selectable here -- QMIO accepts QIR only via a
+  # different submission path (QmioRuntimeService + qiskit_qir bitcode),
+  # which would need its own adapter.
+  wire_format: qasm2
