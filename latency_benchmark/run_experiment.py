@@ -11,6 +11,10 @@ Usage:
 
     # Legacy: run an explicit YAML config directly (old-style probes still work)
     python -m latency_benchmark.run_experiment --config configs/probes/foo.yaml
+
+    # External backend (adapter class outside this package)
+    python -m latency_benchmark.run_experiment \\
+        --backend-config path/to/mybackend.yaml --family qft --axis width
 """
 import argparse
 import json
@@ -43,7 +47,9 @@ def main():
     parser = argparse.ArgumentParser()
 
     # New-style: family/axis/backend
-    parser.add_argument("--backend", choices=["qmio", "qexa20", "fake"])
+    parser.add_argument("--backend", help="Built-in: qmio, qexa20, fake; or any name with a config in $LATENCY_BENCHMARK_BACKENDS_DIR")
+    parser.add_argument("--backend-config", default=None, dest="backend_config",
+                         help="Path to a backend YAML outside this repo (may name an external 'adapter: module:Class'). Replaces --backend.")
     parser.add_argument("--family", choices=["single_qubit", "qft", "qft_no_swap", "measure_only"])
     parser.add_argument("--axis", choices=["batch", "shot", "width", "depth"])
     parser.add_argument("--values", default=None, help="Comma-separated override for the sweep values, e.g. 2,4,6,8")
@@ -68,7 +74,8 @@ def main():
         with open(args.config) as f:
             config = yaml.safe_load(f)
     else:
-        missing = [n for n, v in [("--backend", args.backend), ("--family", args.family), ("--axis", args.axis)] if v is None]
+        missing = [n for n, v in [("--backend or --backend-config", args.backend or args.backend_config),
+                                   ("--family", args.family), ("--axis", args.axis)] if v is None]
         if missing:
             parser.error(f"Missing required arguments: {', '.join(missing)} (or use --config for a legacy YAML run)")
 
@@ -88,6 +95,7 @@ def main():
             overrides=overrides,
             experiment_name=args.experiment_name,
             wire_format=args.wire_format,
+            backend_config=args.backend_config,
         )
         if args.ir_formats:
             config["ir_formats"] = [f.strip() for f in args.ir_formats.split(",")]

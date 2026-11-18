@@ -29,6 +29,7 @@ class TimingOrchestrator:
         self.backend_adapter = make_backend_adapter(
             self.backend_name,
             config.get("backend_options", {}),
+            adapter=config.get("adapter"),
         )
         self.backend = self.backend_adapter.get_backend()
         # Optional, opt-in, off by default: local circuit serialization
@@ -88,8 +89,21 @@ class TimingOrchestrator:
 
         transpiled_depths = None
         try:
-            tcirc = transpile(circuits, backend=self.backend, optimization_level=optimization_level,
-                              seed_transpiler=seed_transpiler)
+            if hasattr(self.backend_adapter, "transpile_circuit"):
+                # Same per-circuit hook as _run_point_per_circuit, so an
+                # adapter's own transpilation (native-gate tweaks, vendor
+                # transpilers) applies on both submission paths.
+                opts = self.config.get("backend_options", {})
+                tcirc = [self.backend_adapter.transpile_circuit(
+                            c, self.backend,
+                            optimization_level=optimization_level,
+                            initial_layout=opts.get("initial_layout"),
+                            decompose_to_basis=opts.get("decompose_to_basis", False),
+                            seed_transpiler=seed_transpiler)
+                         for c in circuits]
+            else:
+                tcirc = transpile(circuits, backend=self.backend, optimization_level=optimization_level,
+                                  seed_transpiler=seed_transpiler)
             transpiled_depths = [c.depth() for c in tcirc]
             circuits_to_run = tcirc
         except Exception as exc:
@@ -115,12 +129,13 @@ class TimingOrchestrator:
         ir_times = self._measure_ir_times(circuits_to_run)
 
         run_kwargs = self.backend_adapter.run_options()
+        result_kwargs = getattr(self.backend_adapter, "result_options", dict)()
 
         t0 = time.perf_counter()
         try:
             job = self.backend.run(circuits_to_run, shots=point["shots"], **run_kwargs)
             t1 = time.perf_counter()
-            result = job.result()
+            result = job.result(**result_kwargs)
             t2 = time.perf_counter()
 
             walltime_backend_run = t1 - t0
@@ -202,6 +217,7 @@ class TimingOrchestrator:
         ir_times = self._measure_ir_times(transpiled_circuits)
 
         run_kwargs = self.backend_adapter.run_options()
+        result_kwargs = getattr(self.backend_adapter, "result_options", dict)()
 
         t_point_start = time.perf_counter()
         try:
@@ -209,7 +225,7 @@ class TimingOrchestrator:
                 t0 = time.perf_counter()
                 job = self.backend.run(tqc, shots=point["shots"], **run_kwargs)
                 t1 = time.perf_counter()
-                result = job.result()
+                result = job.result(**result_kwargs)
                 t2 = time.perf_counter()
 
                 walltime_backend_run += (t1 - t0)

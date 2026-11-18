@@ -54,3 +54,12 @@ class BackendAdapter(ABC):
         anything about a particular platform's client API.
         """
         return {}
+
+    def result_options(self) -> Dict[str, Any]:
+        """Extra keyword arguments to pass to job.result().
+
+        For clients whose result() polls with a configurable interval (e.g.
+        pcss-qapi's ``wait``), so the polling granularity doesn't dominate
+        the measured walltime_result_wait.
+        """
+        return {}

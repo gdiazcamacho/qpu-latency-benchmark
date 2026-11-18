@@ -8,6 +8,7 @@
 This replaces the old one-YAML-per-probe layout: 3 backend files instead
 of dozens of near-duplicate probe YAMLs.
 """
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -18,16 +19,32 @@ from latency_benchmark.experiments.axis_defaults import get_axis_default
 BACKENDS_DIR = Path(__file__).resolve().parents[2] / "configs" / "backends"
 
 
-def load_backend_config(backend: str) -> Dict[str, Any]:
-    path = BACKENDS_DIR / f"{backend}.yaml"
-    if not path.exists():
-        raise FileNotFoundError(f"No backend config at {path}")
-    with open(path) as f:
-        return yaml.safe_load(f)
+def load_backend_config(backend: Optional[str] = None, path: Optional[str] = None) -> Dict[str, Any]:
+    """Load a backend config.
+
+    Lookup order: an explicit ``path``; then <name>.yaml in the directory
+    named by $LATENCY_BENCHMARK_BACKENDS_DIR; then this repo's
+    configs/backends/<name>.yaml.
+    """
+    if path is not None:
+        candidates = [Path(path)]
+    else:
+        if backend is None:
+            raise ValueError("Need a backend name or a backend config path")
+        candidates = []
+        extra = os.environ.get("LATENCY_BENCHMARK_BACKENDS_DIR")
+        if extra:
+            candidates.append(Path(extra) / f"{backend}.yaml")
+        candidates.append(BACKENDS_DIR / f"{backend}.yaml")
+    for candidate in candidates:
+        if candidate.exists():
+            with open(candidate) as f:
+                return yaml.safe_load(f)
+    raise FileNotFoundError("No backend config at " + " or ".join(str(c) for c in candidates))
 
 
 def build_probe_config(
-    backend: str,
+    backend: Optional[str],
     family: str,
     axis: str,
     values: Optional[List[Any]] = None,
@@ -36,6 +53,7 @@ def build_probe_config(
     overrides: Optional[Dict[str, Any]] = None,
     experiment_name: Optional[str] = None,
     wire_format: Optional[str] = None,
+    backend_config: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build a full config dict, ready for expand_probe()/TimingOrchestrator.
 
@@ -49,8 +67,13 @@ def build_probe_config(
     experiments (see plot_backend_comparison.py's --experiments). The
     format is appended to experiment_name so those runs don't collide in
     the database.
+
+    `backend_config` is a path to a backend YAML outside this repo (e.g. a
+    collaborator's own QPU); when given, `backend` may be None and is taken
+    from that file.
     """
-    backend_cfg = load_backend_config(backend)
+    backend_cfg = load_backend_config(backend, path=backend_config)
+    backend = backend_cfg["backend"]
     axis_default = get_axis_default(family, axis)
     overrides = overrides or {}
 
@@ -82,4 +105,6 @@ def build_probe_config(
         "repetitions": repetitions if repetitions is not None else 3,
         "randomize_order": randomize_order if randomize_order is not None else True,
     }
+    if backend_cfg.get("adapter"):
+        config["adapter"] = backend_cfg["adapter"]
     return config

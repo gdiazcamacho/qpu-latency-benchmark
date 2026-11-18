@@ -42,13 +42,33 @@ also need calibration file read access at
 if `find_latest_calibration_file()` (in `backends/qmio.py`) can't find
 anything there.
 
-**QExa20 (LRZ via MQSS)**: needs the `mqss.qiskit_adapter` package (not on
-public PyPI -- ask your LRZ/MQSS contact for access) and an API token. Copy
+**QExa20 (LRZ via MQSS)**: needs the `mqss.qiskit_adapter` module (PyPI
+package `mqss-qiskit`) and an API token. Copy
 `.env.example` to `.env` and fill in `MQSS_TOKEN` (and `MQSS_URL`/
 `MQSS_PORT` if different from the defaults). `.env` is gitignored --
 never commit it. `jobs/run_direct.sh` sources `.env` automatically; if
 running commands manually (e.g. `check_routing.py`), source it yourself
 first: `set -a; source .env; set +a`.
+
+## Adding your own backend (without editing this package)
+
+Write an adapter class subclassing `latency_benchmark.backends.base.BackendAdapter`
+(at minimum `get_backend()`, returning a Qiskit-style backend with `run()`),
+and a backend YAML that points at it:
+
+```yaml
+backend: mydevice
+adapter: mypackage.bench:MyDeviceAdapter   # any importable module:Class
+output_db: results/mydevice.sqlite
+backend_options:          # passed to MyDeviceAdapter(**backend_options)
+  optimization_level: 0
+  seed_transpiler: 42
+```
+
+Run it with `--backend-config path/to/mydevice.yaml`, or put the YAML in a
+directory named by `$LATENCY_BENCHMARK_BACKENDS_DIR` and use `--backend mydevice`.
+Optional hooks: `transpile_circuit()`, `supports_batch_submission()`,
+`run_options()`, `result_options()`, `extract_timing_events()`.
 
 ## How a probe is defined
 
